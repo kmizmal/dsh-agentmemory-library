@@ -311,8 +311,16 @@ node scripts/test-dsh-host.mjs     # 真宿主锚点集成（38 次原生调用�
   测认证、404、5xx 重试、超时、远端删除、空目录保护，全部走本地回环，不碰真库。
 - `test/client.test.mjs` 用 jsdom 加载 `client.js`，断言自注册 id、`inject`、槽位注册。
 - `test/client-render.test.mjs` 用 **jsdom + React 19 真渲染**设置页：模式切换 → 条件字段 →
-  必填校验 → 保存提交的 ops → 测试连接提示 → 状态卡。react/react-dom 装在
-  `test/vendor/react-runtime/`（不进 npm 包），缺依赖时这两组测试自动跳过。
+  必填校验 → 保存提交的 ops → 测试连接提示 → 状态卡。
+
+  这两组测试的依赖是**可选的**。从仓库克隆后它们是跳过的（18 项），想跑就本地装一次：
+
+  ```bash
+  npm i --no-save jsdom
+  (cd test/vendor/react-runtime && npm i --omit=dev)   # react@19 / react-dom@19，已 .gitignore
+  ```
+
+  装完再跑 `node --test test/*.test.mjs` 就是 138 项全过。
 
 `scripts/test-dsh-host.mjs` 必须先 `registerHooks` 把 `@deepseek-ai/` 的解析
 `parentURL` 重定向到宿主安装目录——profile 的 `node_modules/@deepseek-ai/` 只有
