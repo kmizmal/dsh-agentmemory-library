@@ -37,8 +37,10 @@ skill 只能说「去 shell 里跑脚本」——每次都要一次 shell 启动
 - 客户端侧工具名就是原名（`library_search` 等），前缀由客户端按 server 名自己加；
 - 配置走环境变量（`AGENTMEMORY_*`），与插件配置一一对应。
 
-引导：skill `agentmemory-library-mcp`；实现说明与实测记录：`docs/MCP-COMPAT.md`；
-自测：`node scripts/test-mcp.mjs [--write]`。
+**配置指引**：[docs/MCP-CONFIG.md](docs/MCP-CONFIG.md) —— 环境变量全表、Claude Code / Codex /
+Cursor / Cline / n8n / 自写脚本六种接法、密码不落盘的三种做法、排错表。
+
+实现说明与实测记录：[docs/MCP-COMPAT.md](docs/MCP-COMPAT.md)；自测：`node scripts/test-mcp.mjs [--write]`。
 
 ## 安装
 
