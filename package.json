@@ -1,0 +1,71 @@
+{
+  "name": "dsh-agentmemory-library",
+  "version": "0.3.0",
+  "description": "把 AgentMemory 资料库的读写注册成 DSH 原生工具：双模式（本机目录 / WebDAV 云端），带设置页",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "lib",
+    "docs",
+    "mcp",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=24.0.0",
+    "dsh": ">=0.2.1-rc.2 <0.3.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-tools": "0.2.1-rc.2 || 0.2.1-rc.3 || 0.2.1-rc.4 || 0.2.1-rc.5",
+    "@deepseek-ai/schemastery": "~3.18.5"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    },
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    }
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check": "node scripts/check.mjs",
+    "test:host": "node scripts/test-dsh-host.mjs",
+    "test:mcp": "node scripts/test-mcp.mjs"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "agentmemory",
+    "library",
+    "local-first",
+    "webdav",
+    "cloud"
+  ],
+  "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kmizmal/dsh-agentmemory-library.git"
+  },
+  "homepage": "https://github.com/kmizmal/dsh-agentmemory-library#readme",
+  "bugs": {
+    "url": "https://github.com/kmizmal/dsh-agentmemory-library/issues"
+  }
+}

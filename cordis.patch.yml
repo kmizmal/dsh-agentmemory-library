@@ -1,0 +1,3 @@
+- insert:
+    - id: agentmemory-library
+      name: dsh-agentmemory-library

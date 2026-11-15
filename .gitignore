@@ -1,0 +1,30 @@
+# 依赖
+node_modules/
+
+# 构建产物 / 打包结果
+dist/
+*.tgz
+*.tar.gz
+
+# 测试用的可选渲染运行时（本地 npm install 生成，见 test/client-render.test.mjs）
+# 它只是让 panel 渲染测试能跑起来，不是源码；缺了测试会 skip
+test/vendor/react-runtime/node_modules/
+
+# 运行时数据（本机库根、镜像缓存、日志）
+*.log
+.dsh-mirror.json
+.cache/
+
+# 编辑器 / 系统
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*~
+
+# 本地凭据
+.env
+.env.*
+!.env.example
+*.pem
+*.key
