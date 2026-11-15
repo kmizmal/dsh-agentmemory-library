@@ -9,7 +9,7 @@
 | 模式 | 真源 | 读 | 写 | 适用 |
 | --- | --- | --- | --- | --- |
 | `local`（默认） | 本机目录 | 直接读磁盘 | 直接落盘（原子写） | 库就在这台机器上（现状） |
-| `cloud` | WebDAV | 读**本地镜像缓存**（按 TTL 与服务端对账） | 先 `PUT` 到 WebDAV，成功后再更新镜像 | 库在 NAS / Nextcloud / copyparty 上 |
+| `cloud` | WebDAV | 读**本地镜像缓存**（按 TTL 与服务端对账） | 先 `PUT` 到 WebDAV，成功后再更新镜像 | 库在 NAS / Nextcloud / 自建 WebDAV 上 |
 
 模式切换只改一个配置项（`mode`），下一次工具调用立刻换后端，**不需要重启**。
 
@@ -18,10 +18,10 @@
 skill 只能说「去 shell 里跑脚本」——每次都要一次 shell 启动 + 一次 node 冷启动，而且
 模型不必然会想起去跑。原生工具进 wire schema，模型每次组装 prompt 都看得见。
 
-检索、列表、读取的实现是 **`/root/.agents/skills/agentmemory-library/scripts/search.mjs`
-的逐行移植**（同样的多词 AND、同样的 `score = 命中行数 + 标题命中 50`、同样的 frontmatter
-解析），所以插件搜到的和命令行搜到的结果一致。收尾仍然 spawn 现成的 `publish.sh`
-——不重写它，cron 与手工命令行继续用同一份。
+检索、列表、读取的实现是从 AgentMemory 的**命令行检索脚本**
+（`search.mjs`）逐行移植的：同样的多词 AND、同样的 `score = 命中行数 + 标题命中 50`、
+同样的 frontmatter 解析，所以插件搜到的和命令行搜到的结果一致。
+收尾仍然 spawn 现成的 `publish.sh`，不重写它 —— cron 与手工命令行继续用同一份。
 
 云端模式**复用同一套读实现**：WebDAV 只负责把变化同步到本地镜像，检索/列表/读取仍然打在
 本机目录上。这样两种模式的行为不会漂移（见 `docs/DUAL-MODE.md` 的取舍说明）。
@@ -43,9 +43,10 @@ skill 只能说「去 shell 里跑脚本」——每次都要一次 shell 启动
 ## 安装
 
 ```bash
-cd /root/dsh/dsh-agentmemory-library
-npm pack --ignore-scripts --pack-destination /root/dsh/dist/
-dsh plugin --profile web add file:/root/dsh/dist/dsh-agentmemory-library-0.3.0.tgz
+git clone https://github.com/kmizmal/dsh-agentmemory-library.git
+cd dsh-agentmemory-library
+npm pack --ignore-scripts --pack-destination ./dist/
+dsh plugin --profile web add file:$(pwd)/dist/dsh-agentmemory-library-0.3.0.tgz
 # 由 dsh-plugin-manager 的 reconcile() 自动追加进 dsh.profile.bundles（manifest 有 dsh.bundle 即可）
 dsh --profile web --dump-config 2>/dev/null | grep agentmemory-library
 ```
@@ -67,7 +68,7 @@ dsh --profile web --dump-config 2>/dev/null | grep agentmemory-library
 [ 本地模式 ] [ 云端模式（WebDAV） ]        ← 模式切换
 ┌────────────────────────────────────┐
 │ 库根目录（绝对路径） *              │    ← 本地模式只显示这一项
-│ /root/copyparty/library/Obsidian/… │
+│ /data/notes/AgentMemory             │
 └────────────────────────────────────┘
 ┌────────────────────────────────────┐
 │ WebDAV 地址 *                       │    ← 云端模式显示 url/账号/密码
@@ -115,7 +116,7 @@ dsh --profile web --dump-config 2>/dev/null | grep agentmemory-library
 | --- | --- | --- | --- | --- |
 | `mode` | `local` \| `cloud` | `local` | 是 | 存储模式 |
 | `root` | string | `''` | 否 | **兼容字段**，等价于 `local.root`（`local.root` 优先）。旧配置不用改 |
-| `publishScript` | string | `/root/.agents/skills/agentmemory-library/scripts/publish.sh` | 否 | 收尾脚本（仅本地模式） |
+| `publishScript` | string | 自动探测 | 否 | 收尾脚本（仅本地模式）。按 `$DSH_HOME/skills/…` → `$DSH_AGENTS_HOME/skills/…`（默认 `~/.agents/skills`）找第一个存在的 `agentmemory-library/scripts/publish.sh` |
 | `defaultLimit` | number | `10` | 否 | 检索/列表默认条数 |
 | `maxReadBytes` | number | `524288` | 否 | 整篇读回的字节上限 |
 | `publishTimeoutMs` | number | `120000` | 否 | publish 超时 |
@@ -149,17 +150,17 @@ dsh --profile web --dump-config 2>/dev/null | grep agentmemory-library
     mode: cloud
     cloud:
       url: https://dav.example.com/dav/AgentMemory/
-      username: zmal
+      username: alice
       password: '******'
-      cacheDir: /root/.cache/agentmemory-mirror
+      cacheDir: /home/alice/.cache/agentmemory-mirror
       refreshTtlMs: 60000
 ```
 
-### 云端服务端要求（实测踩过的）
+### 云端服务端要求
 
 | 服务端 | 要点 |
 | --- | --- |
-| copyparty | 本插件的客户端只用 `PROPFIND Depth: 1`（copyparty 默认对 `Depth: infinity` 回 403 `propfind-finite-depth`，不需要为它开 `dav-inf`）。写入要给卷 **`d`（delete）权限**：实测 `rwd` 权限下、客户端发 `X-OC-Mtime` 头即可同名覆盖；只给 `rw` 时 copyparty 会把覆盖写另存成 `xxx-时间戳.md`（插件会回读发现并报 `CLOUD_WRITE_NOT_APPLIED`）。也可以直接给卷标志 `daw`。走 Cloudflare 时要开 `no-html`（CF 会给 HTML 响应尾部注入脚本，PROPFIND 的长度/内容会坏掉）并配 `rproxy:1` + `xff-hdr` |
+| copyparty | 客户端只发 `PROPFIND Depth: 1`；copyparty 默认对 `Depth: infinity` 回 403 `propfind-finite-depth`，因此**不需要**为它开 `dav-inf`。写入要给卷 **`d`（delete）** 权限：给 `rwd` 时客户端带 `X-OC-Mtime` 头可同名覆盖，只给 `rw` 时覆盖写会被另存成 `xxx-时间戳.md`，插件回读对不上会报 `CLOUD_WRITE_NOT_APPLIED`；也可以直接用卷标志 `daw`。经 Cloudflare 时开 `no-html`（CF 会在响应尾注入脚本，破坏 PROPFIND 的长度/内容）并配 `rproxy:1` + `xff-hdr` |
 | Nextcloud / ownCloud | 地址形如 `https://host/remote.php/dav/files/<用户>/<目录>/`；建议用「应用专用密码」而不是登录密码 |
 | nginx-dav / Apache mod_dav | 需要放开 `PROPFIND / GET / PUT / MKCOL / DELETE`；`client_max_body_size` 要大于最大单篇文档 |
 
@@ -216,7 +217,7 @@ tool call
 | `CLOUD_TLS_ERROR` | 证书校验失败 | 自签名证书才打开 `insecureTls` |
 | `CLOUD_SERVER_ERROR` / `CLOUD_RATE_LIMITED` | 5xx / 429 | 按 `retries` 指数退避重试；仍失败则报错 |
 | `CLOUD_LIBRARY_TOO_LARGE` | 远端文件数 > 20000 | 拒绝整库镜像（防止把巨型 DAV 拖垮） |
-| `CLOUD_WRITE_NOT_APPLIED` | PUT 成功但回读内容不一致 | 服务端把覆盖写另存成了新文件名（copyparty 缺 `d`/`daw`）；镜像不会被改，先 `library_read` 确认再决定是否重试（**不要盲目重试 append**） |
+| `CLOUD_WRITE_NOT_APPLIED` | PUT 成功但回读内容不一致 | 服务端把覆盖写另存成了新文件名（某些服务端缺删除权限时会这样，见下「云端服务端要求」）；镜像不会被改，先 `library_read` 确认再决定是否重试（**不要盲目重试 append**） |
 | `CLOUD_WRITE_UNVERIFIED` | PUT 成功但回读失败 | 按已写入处理，结果带 `warning`（PUT 已 2xx，报失败会诱发重复 append） |
 | `CLOUD_WRITE_NORMALIZED` | 回读只差换行/BOM | 按成功处理（服务端做了归一化），`verified:false` |
 | `CLOUD_LIBRARY_TOO_DEEP` | 目录超过 12 层 | 拒绝用残缺清单覆盖镜像（否则深层文件会被当"远端已删"） |
@@ -267,7 +268,7 @@ HTTP 接口（`/api/agentmemory-library/*`）有两道闸：DSH 的信任栅栏
 | 一处改动触发全库重建 | 17MB / 219 文件全扫并重写两个生成物（仅索引 165–530ms，整套 1.9s） |
 | `publish.sh` 缺失连改字都不行 | 现在只有 publish 报 `PUBLISH_SCRIPT_MISSING` |
 
-云端模式不跑 publish：索引、copyparty 健康、备份时效都属于**持有 WebDAV 数据的那台库主机**，
+云端模式不跑 publish：索引、服务健康、备份时效都属于**持有 WebDAV 数据的那台库主机**，
 请在那边用本地模式跑（或直接跑 `publish.sh`）。
 
 ## 为什么要 `library_replace`
@@ -338,7 +339,7 @@ dsh plugin --profile web remove dsh-agentmemory-library
 # 重启宿主
 ```
 
-资料库、copyparty 服务、cron、`search.mjs` / `publish.sh` 全程不被改动，回滚后一切照旧。
+资料库、WebDAV 服务、cron、`search.mjs` / `publish.sh` 全程不被改动，回滚后一切照旧。
 云端模式只在 `<cacheDir>` 下留一份镜像和 `.dsh-mirror.json`，删掉即可。
 
 ## 设计约束（写代码前踩过的）
@@ -354,8 +355,8 @@ dsh plugin --profile web remove dsh-agentmemory-library
   `ValidationError: $.mode expected "local" | "cloud" but got {}`（持有器被当原始值）。
 - **`tools.register()` 必填 `output: { schema, render }`**。
 - **兼容性只看 `engines.dsh`**：manifest 有它时 peerDependencies 全部忽略。
-- **不经 `ctx.fs` 写**：那条路带会话的文件沙箱策略，资料库在 `/root/copyparty` 下，
-  沙箱里的会话根本写不进去。
+- **不经 `ctx.fs` 写**：那条路带会话的文件沙箱策略，而资料库通常落在沙箱外的目录（
+  例如挂载进来的笔记库），沙箱里的会话根本写不进去。
 - **client bundle 不是 ESM**：`client.js` 用 `window.__ModuleLoader__.load({id,factory})`
   自注册，`id` 必须等于包名；`package.json` 要有 `dsh.client` 与 `./client` 导出。
 

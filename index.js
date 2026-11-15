@@ -23,6 +23,7 @@ import { runPublish } from './lib/publish.mjs'
 import {
   MODE_CLOUD,
   MODE_LOCAL,
+  defaultPublishScript,
   inspectConfig,
   readConfig,
   readLegacyFile,
@@ -112,7 +113,7 @@ export const Config = z.object({
   /** 收尾脚本（与 cron 共用同一份，不重写）。云端模式下不跑（见 library_publish 的说明）。 */
   publishScript: z
     .string()
-    .default('/root/.agents/skills/agentmemory-library/scripts/publish.sh')
+    .default(defaultPublishScript())
     .volatile()
     .description('publish 脚本路径（仅本地模式）'),
   /** 单次检索/列表默认返回条数。 */
